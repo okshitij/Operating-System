@@ -196,33 +196,67 @@ void SJFPreemptive(vector<Process> processes) {
     displayResults(result);
 }
 
+// Round Robin Scheduling function
 void roundRobin(vector<Process>& processes, int quantum) {
     int currentTime = 0;
     int completed = 0;
     int n = processes.size();
-    vector<int> remainingBurstTime(n);
+    queue<int> q;
 
-    for (int i = 0; i < n; i++) remainingBurstTime[i] = processes[i].burstTime;
+    vector<bool> inQueue(n, false);  // Track if a process is already in the queue
+    vector<int> remainingBurstTime(n);
+    
+    for (int i = 0; i < n; i++) 
+        remainingBurstTime[i] = processes[i].burstTime;
+
+    // Start with processes that have arrived at time 0
+    for (int i = 0; i < n; i++) {
+        if (processes[i].arrivalTime == 0) {
+            q.push(i);
+            inQueue[i] = true;
+        }
+    }
 
     while (completed < n) {
-        bool done = true;
-        for (int i = 0; i < n; i++) {
-            if (remainingBurstTime[i] > 0 && processes[i].arrivalTime <= currentTime) {
-                done = false;
-                if (remainingBurstTime[i] <= quantum) {
-                    currentTime += remainingBurstTime[i];
-                    processes[i].finishTime = currentTime;
-                    processes[i].turnaroundTime = currentTime - processes[i].arrivalTime;
-                    processes[i].waitingTime = processes[i].turnaroundTime - processes[i].burstTime;
-                    remainingBurstTime[i] = 0;
-                    completed++;
-                } else {
-                    remainingBurstTime[i] -= quantum;
-                    currentTime += quantum;
+        if (q.empty()) {
+            currentTime++;
+            for (int i = 0; i < n; i++) {
+                if (!inQueue[i] && processes[i].arrivalTime <= currentTime) {
+                    q.push(i);
+                    inQueue[i] = true;
                 }
             }
+            continue;
         }
-        if (done) currentTime++;
+
+        int i = q.front();
+        q.pop();
+
+        // Execute the current process
+        if (remainingBurstTime[i] > quantum) {
+            currentTime += quantum;
+            remainingBurstTime[i] -= quantum;
+        } else {
+            currentTime += remainingBurstTime[i];
+            processes[i].finishTime = currentTime;
+            processes[i].turnaroundTime = currentTime - processes[i].arrivalTime;
+            processes[i].waitingTime = processes[i].turnaroundTime - processes[i].burstTime;
+            remainingBurstTime[i] = 0;
+            completed++;
+        }
+
+        // Check for newly arrived processes and add them to the queue
+        for (int j = 0; j < n; j++) {
+            if (!inQueue[j] && processes[j].arrivalTime <= currentTime && remainingBurstTime[j] > 0) {
+                q.push(j);
+                inQueue[j] = true;
+            }
+        }
+
+        // Re-add current process if it still has remaining burst time
+        if (remainingBurstTime[i] > 0) {
+            q.push(i);
+        }
     }
 
     cout << "\nRound Robin Scheduling:";
